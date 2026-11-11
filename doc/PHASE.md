@@ -19,7 +19,7 @@ Related: [DECISIONS.md](DECISIONS.md) for why each choice was made,
 | 5 | Product | 3 weeks | Not started |
 | 6 | ML experiment | 2 weeks | Not started |
 
-**Current phase:** 0 (data spike and skeleton done; CI run and download test remaining)
+**Current phase:** 0 (data spike and skeleton done, CI green; download test remaining)
 
 ## How to use this file
 
@@ -46,7 +46,7 @@ cheap to check now and expensive to discover in Phase 3.
 - [x] Look at one integrated filing (Mar 2025 onward) and note its format
 
 **Gate**
-- [ ] CI is green on an empty app
+- [x] CI is green on an empty app
 - [x] Earliest filing year and likely backtest window are written down
 - [ ] Scheduled download works, or a fallback (self-hosted runner or local cron) is chosen
 
