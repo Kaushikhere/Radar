@@ -11,15 +11,15 @@ Related: [DECISIONS.md](DECISIONS.md) for why each choice was made,
 | Phase | What it delivers | Estimate | Status |
 |---|---|---|---|
 | Docs | PRD, plan, decisions, architecture | — | Done |
-| 0 | Skeleton and data spike | 1 week | In progress |
-| 1 | Prices for 50 stocks | 2 weeks | Not started |
+| 0 | Skeleton and data spike | 1 week | Done |
+| 1 | Prices for 50 stocks | 2 weeks | Next |
 | 2 | Fundamentals for the same 50 | 4–6 weeks | Not started |
 | 3 | Full universe | 2–3 weeks | Not started |
 | 4 | Backtest | 2 weeks | Not started |
 | 5 | Product | 3 weeks | Not started |
 | 6 | ML experiment | 2 weeks | Not started |
 
-**Current phase:** 0 (data spike and skeleton done, CI green; download test remaining)
+**Current phase:** 1 (next up). Phase 0's gate passed on 11 Nov 2026.
 
 ## How to use this file
 
@@ -42,13 +42,15 @@ cheap to check now and expensive to discover in Phase 3.
 - [x] pytest and linting configured
 - [x] GitHub Actions CI workflow
 - [x] Data spike notes: earliest usable `reported_at` for 5 stocks ([SPIKE.md](SPIKE.md))
-- [ ] Scheduled workflow that fetches one bhavcopy and one filing
+- [x] Scheduled workflow that fetches one bhavcopy and one filing
 - [x] Look at one integrated filing (Mar 2025 onward) and note its format
 
 **Gate**
 - [x] CI is green on an empty app
 - [x] Earliest filing year and likely backtest window are written down
-- [ ] Scheduled download works, or a fallback (self-hosted runner or local cron) is chosen
+- [x] Scheduled download works, or a fallback (self-hosted runner or local cron) is chosen.
+  NSE's price file and results list both download from a GitHub-hosted runner. BSE
+  answers, but its data pages are untested (see [SPIKE.md](SPIKE.md)).
 
 ## Phase 1 — Prices for 50 stocks
 
@@ -169,6 +171,7 @@ One line per push, newest first.
 
 | Date | Phase | What was pushed | Why |
 |---|---|---|---|
+| 2026-11-11 | 0 | `scripts/download_test.py` and a weekday workflow that runs it | Find out whether a GitHub-hosted runner can fetch from the exchanges. It can: NSE prices and results both download |
 | 2026-11-11 | 0 | Skeleton: `pyproject.toml`, Docker Compose with Postgres, Alembic with an empty baseline, a `/health` endpoint, three tests, ruff, CI workflow, `README.md` | Give every later phase a place to put code, a database to run against, and checks that run on each push |
 | 2026-11-11 | 0 | `SPIKE.md`; updates to `PLAN.md`, `DECISIONS.md` (D-25 to D-27) | Record what the archives hold: dated results from 2007, balance sheets from 2018, dated shareholding from 2016, and what that does to the backtest window |
 | 2026-11-11 | Docs | All five docs moved into `doc/`; `main` branch created | Keep the repo root free for code, and give the repo a default branch to merge into |

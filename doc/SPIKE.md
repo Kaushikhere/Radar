@@ -68,6 +68,12 @@ on the full universe.
   share capital shows as 89.00 crore.
 - Only BSE's page was checked, not NSE's.
 
+### Results list as data (NSE)
+
+NSE serves each company's list of results as JSON, with a filing date and time on
+every row. Titan's list has 113 filings, all dated. The ingest can read this
+directly and does not need to scrape the listing page.
+
 ### Balance sheets before 2018
 
 Not available in usable form. Checked on Titan:
@@ -149,7 +155,10 @@ One case is not proof, but it suggests NSE keeps a delisted company's results.
 
 ## Still open
 
-1. **Scheduled download test.** Whether a GitHub Actions job can fetch from NSE and BSE.
+1. **Fetching shareholding from BSE.** A GitHub-hosted runner can download NSE's daily
+   price file and NSE's results list (run on 11 Nov 2026), and BSE's home page answers.
+   BSE's data pages have not been fetched by a program yet. Needed before the
+   shareholding ingest in Phase 2.
 2. **XBRL and consolidated start dates beyond Titan.** Checked on one company only.
 3. **Demerger price factor.** Where the ratio or the value split comes from.
 4. **NSE's integrated filing page.** Only BSE's was checked.
