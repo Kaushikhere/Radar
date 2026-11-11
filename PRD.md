@@ -112,7 +112,7 @@ Every score carries the line "Based on past data, not a prediction."
 
 ## Roadmap
 
-Each phase ends at a gate. Phase 4's gate matters most: if the ranker can't beat the Nifty 50 on data it hasn't seen, Radar ships with rule-based scores only.
+Each phase ends at a gate. The ML ranker's gate (Phase 6 in [PLAN.md](PLAN.md)) matters most: if the ranker can't beat the rule-based score on data it hasn't seen, Radar ships with rule-based scores only.
 
 ## Risks and limitations
 

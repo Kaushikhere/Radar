@@ -27,12 +27,12 @@ buy/sell advice.
 
 | Area | PRD | Revised |
 |---|---|---|
-| Look-ahead | Financials keyed by `period_end` only | `reported_at` on financials and shareholding; scoring uses only rows published on or before the scoring date |
+| Look-ahead | Financials keyed by `period_end` only | `reported_at` on financials and shareholding; scoring uses only rows published before the scoring date |
 | Valuation data | No share count or EPS | `shares_outstanding` and `eps` stored per quarter |
-| Price adjustment | Not covered | `corporate_actions` table; raw prices stored, adjusted at query time |
+| Price adjustment | Not covered | `corporate_actions` table covering splits, bonuses, dividends, rights issues and demergers; raw prices stored, adjusted at query time |
 | Universe history | Today's stock list | `index_membership` with date ranges, plus delisted stocks |
 | Benchmark | Nifty 50 | Nifty 500 total return (primary), Nifty 50 (secondary) |
-| Rebalance | Weekly picks | Quarterly in the backtest; results reported per year |
+| Rebalance | Weekly picks | Quarterly in the backtest, with an annual-rebalance run for comparison; results reported per year |
 | Sector rules | One formula for all | Separate factor set for banks/NBFCs; fallback to sector group when a sector has fewer than 10 peers |
 | News | FinBERT sentiment | Keyword red flags on exchange announcements; FinBERT deferred |
 | Database | DuckDB, then Postgres + TimescaleDB | Postgres from day one, no TimescaleDB |
@@ -67,7 +67,7 @@ stock's peer group. Weights are fixed for v1.
 | Factor | Signals | Special handling |
 |---|---|---|
 | Fundamentals (F) | 3–5 year revenue and profit growth, ROE/ROCE, debt-to-equity, operating cash flow | Banks/NBFCs use asset quality (gross and net NPA), capital adequacy and return on assets instead |
-| Valuation (V) | P/E and PEG vs peers and vs own 5-year history | Loss-making companies get no V score; evidence reads "not meaningful" |
+| Valuation (V) | P/E and PEG vs peers and vs own 5-year history. P/E is market cap divided by trailing 12-month net profit, so splits and bonuses do not distort it | Loss-making companies get no V score; evidence reads "not meaningful" |
 | Ownership (O) | Promoter holding trend, pledging, institutional holding change | — |
 | Trend (T) | Long-term price trend on adjusted prices | — |
 
@@ -77,12 +77,15 @@ Rules:
 - A missing factor is stored as NULL with an evidence line saying why. The total is
   re-weighted over the factors that exist, and the stock is excluded from the
   shortlist if fewer than three factors are available.
+- Balance-sheet and cash-flow fields are filed half-yearly or annually, not every quarter.
+  Factors use the latest value published before the scoring date, and the evidence line
+  states which period it came from.
 - A red flag removes a stock from the shortlist; it does not change the score.
 - Every score carries "Based on past data, not a prediction."
 
 ## 5. Data model
 
-Thirteen tables in Postgres. Everything keys on `stock_id` because symbols get renamed.
+Twelve tables in Postgres. Everything keys on `stock_id` because symbols get renamed.
 
 ```sql
 CREATE TABLE stocks (
@@ -120,8 +123,9 @@ CREATE TABLE prices (                     -- raw prices; adjust at query time
 
 CREATE TABLE corporate_actions (
   stock_id INT REFERENCES stocks, ex_date DATE,
-  action_type TEXT,                       -- split | bonus | dividend
-  price_factor NUMERIC,                   -- e.g. 0.5 for a 1:1 bonus
+  action_type TEXT,                       -- split | bonus | dividend | rights | demerger
+  price_factor NUMERIC,                   -- e.g. 0.5 for a 1:1 bonus; for a demerger,
+                                          -- the share of value left in the parent
   dividend_per_share NUMERIC,
   PRIMARY KEY (stock_id, ex_date, action_type)
 );
@@ -137,8 +141,10 @@ CREATE TABLE financials_quarterly (
   period_end DATE, reported_at DATE NOT NULL,   -- when the market could first see it
   is_consolidated BOOLEAN,
   revenue NUMERIC, net_profit NUMERIC,
-  operating_cf NUMERIC,                   -- often NULL: not reported every quarter
-  total_debt NUMERIC, equity NUMERIC,
+  operating_profit NUMERIC,               -- with the two below, gives EBIT for ROCE
+  finance_costs NUMERIC, tax_expense NUMERIC,
+  operating_cf NUMERIC,                   -- often NULL: filed half-yearly or annually
+  total_debt NUMERIC, equity NUMERIC,     -- often NULL: filed half-yearly or annually
   shares_outstanding NUMERIC, eps NUMERIC,
   total_assets NUMERIC, gross_npa_pct NUMERIC,  -- banks/NBFCs only
   net_npa_pct NUMERIC, capital_adequacy_pct NUMERIC,
@@ -150,7 +156,7 @@ CREATE TABLE shareholding (
   stock_id INT REFERENCES stocks,
   quarter_end DATE, reported_at DATE NOT NULL,
   promoter_pct NUMERIC, pledged_pct NUMERIC, fii_pct NUMERIC, dii_pct NUMERIC,
-  PRIMARY KEY (stock_id, quarter_end)
+  PRIMARY KEY (stock_id, quarter_end, reported_at)  -- keeps restatements
 );
 
 CREATE TABLE announcements (              -- replaces news for v1
@@ -185,6 +191,9 @@ CREATE TABLE pipeline_runs (
 );
 ```
 
+`reported_at` is a date, and results are usually published after market close. A row
+is therefore usable only from the next day: every query filters on `reported_at < as_of`.
+
 Known simplification: sector is today's classification, not its history. State this in the README.
 
 ## 6. Data sources
@@ -192,26 +201,32 @@ Known simplification: sector is today's classification, not its history. State t
 | Data | Source | Notes |
 |---|---|---|
 | Prices | NSE bhavcopy archives | Include delisted names; keyed by symbol, so map through `symbol_history` |
-| Corporate actions | NSE corporate actions files | Needed before any return calculation |
+| Corporate actions | NSE corporate actions files | Needed before any return calculation; includes rights issues and demergers |
 | Index levels | NSE index history (price and total return) | Nifty 500 TRI and Nifty 50 TRI |
-| Index membership | NSE index constituent change notices | Rebuild date ranges from the change history |
+| Index membership | NSE index constituent change notices | Rebuild date ranges from the change history; the hardest ingest in the plan, with its own gate in Phase 3 |
 | Financials | Exchange result filings (XBRL) | Filing date gives `reported_at` |
 | Shareholding | Exchange shareholding pattern filings | Filing date gives `reported_at` |
 | Announcements | Exchange corporate announcements | Source for keyword red flags |
 
 Batch and cache every download, and respect each site's terms. Screener.in is for
-manual spot-checks only, not ingestion. Confirm how many years of filings are
-actually available before fixing the backtest window.
+manual spot-checks only, not ingestion.
+
+Two things are checked in Phase 0, before any ingest code is written:
+- How many years of filings exist. The factors need 3–5 years of growth and 5 years of
+  valuation history, so the first scoreable date is about 5 years after the earliest filing.
+- Whether the scheduled job can download from the exchange at all. Exchange sites may
+  block requests from cloud hosts such as GitHub Actions runners.
 
 ## 7. Backtest rules
 
 - Universe on each date: stocks in the Nifty 500 on that date that pass the liquidity filter.
-- Inputs: only rows with `reported_at <= as_of`; prices up to `as_of`.
+- Inputs: only rows with `reported_at < as_of`; prices up to `as_of`.
 - Rebalance quarterly, equal weight, top N by total score after the red-flag filter.
+- Also run an annual-rebalance variant, since the scores target a 1–3 year hold.
 - Returns on adjusted prices including dividends, minus a fixed trading cost per rebalance.
 - A stock that delists while held exits at its last traded price.
 - Benchmark: Nifty 500 total return; Nifty 50 total return shown as a second line.
-- Report excess return and hit rate per calendar year, plus the worst drawdown.
+- Report excess return and hit rate per calendar year, plus the worst drawdown and portfolio turnover.
 - The whole backtest runs from one command and produces the same numbers each time.
 
 ## 8. Architecture and stack
@@ -229,9 +244,14 @@ actually available before fixing the backtest window.
 
 Time estimates assume part-time work and are guesses. Phase 2 is the most likely to overrun.
 
-### Phase 0 — Skeleton (3–4 days)
+### Phase 0 — Skeleton and data spike (1 week)
 - Repo, Docker Compose with Postgres, Alembic, pytest, linting, GitHub Actions CI
-- **Gate:** CI is green on an empty app
+- Data spike on 5 stocks: download results and shareholding filings by hand and record
+  the earliest usable `reported_at` for each
+- Download test: one scheduled GitHub Actions job fetches a bhavcopy and a filing
+- **Gate:** CI is green on an empty app; the earliest filing year and the likely backtest
+  window are written down; the scheduled download works, or a fallback (self-hosted
+  runner or local cron) is chosen
 
 ### Phase 1 — Prices for 50 stocks (2 weeks)
 - Bhavcopy ingest, `symbol_history`, corporate actions, adjusted-price view
@@ -248,7 +268,10 @@ Time estimates assume part-time work and are guesses. Phase 2 is the most likely
 ### Phase 3 — Full universe (2–3 weeks)
 - Nifty 500 with historical membership and delisted names
 - Liquidity filter, bank/NBFC factor set, small-sector fallback
-- **Gate:** number of usable years is known; data coverage is above a threshold you set
+- **Gate (membership):** rebuilt Nifty 500 membership matches a published constituent
+  list on 3 past dates, and includes at least one stock that later delisted
+- **Gate (coverage):** the usable years estimated in Phase 0 are confirmed on the full
+  universe; data coverage is above a threshold you set
 
 ### Phase 4 — Backtest (2 weeks)
 - Backtest engine following section 7; results written to `picks` with `run_type = 'backtest'`
@@ -271,8 +294,8 @@ Time estimates assume part-time work and are guesses. Phase 2 is the most likely
 
 | Test | What it proves |
 |---|---|
-| Look-ahead | No score for date D uses a row with `reported_at` after D |
-| Adjustment | A split or bonus does not create a false price jump |
+| Look-ahead | No score for date D uses a row with `reported_at` on or after D |
+| Adjustment | A split, bonus or demerger does not create a false price jump |
 | Survivorship | The backtest universe on a past date includes stocks that later delisted |
 | Evidence | Every row in `scores` has at least one evidence line |
 | Missing data | A loss-making company and a bank both score without errors |
@@ -299,6 +322,7 @@ A negative or flat excess return is an acceptable outcome as long as it is repor
 | Too little history to prove an edge | Per-year reporting; no claims of consistent outperformance |
 | Filings are hard to parse or incomplete | Start with 50 stocks; measure coverage before widening |
 | Data source limits or terms | Batch, cache, official files first |
+| Exchange blocks downloads from cloud hosts | Tested in Phase 0; fallback is a self-hosted runner or local cron |
 | Regulation (SEBI research analyst rules) | Personal, educational, free, no personalised advice; check the rules before any public launch |
 | Scope creep | The "Out" list in section 3 stays out until Phase 5's gate passes |
 
@@ -315,6 +339,6 @@ Stock projects are common, so lead with the engineering:
 |---|---|
 | Fundamentals source | Exchange filings; Screener.in for spot-checks only |
 | Factor weights | Fixed for v1; ML ranker is a challenger |
-| Backtest depth | Set after Phase 3 measures real coverage |
+| Backtest depth | Estimated in the Phase 0 data spike; confirmed after Phase 3 measures real coverage |
 | Personal or public | Public read-only demo, no logins |
 | Streamlit or FastAPI + React | FastAPI + minimal React |
