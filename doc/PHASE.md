@@ -168,6 +168,7 @@ One line per push, newest first.
 
 | Date | Phase | What was pushed | Why |
 |---|---|---|---|
+| 2026-11-11 | Docs | All five docs moved into `doc/`; `main` branch created | Keep the repo root free for code, and give the repo a default branch to merge into |
 | 2026-11-11 | Docs | `PHASE.md`, `DECISIONS.md`, `ARCHITECTURE.md` | Record what each phase delivers, why each decision was made, and which alternatives were rejected |
 | 2026-11-11 | Docs | Revised `PLAN.md`; one-line fix in `PRD.md` | Move the data check to Phase 0, fix schema gaps (ROCE inputs, restatements, same-day look-ahead, demergers), add an annual-rebalance run |
 | 2026-11-11 | Docs | `PRD.md`, `PLAN.md` | Put the original PRD and the revised plan under version control |
