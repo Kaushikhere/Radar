@@ -19,7 +19,7 @@ Related: [DECISIONS.md](DECISIONS.md) for why each choice was made,
 | 5 | Product | 3 weeks | Not started |
 | 6 | ML experiment | 2 weeks | Not started |
 
-**Current phase:** 0 (data spike done; skeleton and download test remaining)
+**Current phase:** 0 (data spike and skeleton done; CI run and download test remaining)
 
 ## How to use this file
 
@@ -37,10 +37,10 @@ filings exist, and whether a scheduled job can download from the exchange. Both 
 cheap to check now and expensive to discover in Phase 3.
 
 **What gets pushed**
-- [ ] Repo layout, `docker-compose.yml` with Postgres
-- [ ] Alembic set up with an empty first migration
-- [ ] pytest and linting configured
-- [ ] GitHub Actions CI workflow
+- [x] Repo layout, `docker-compose.yml` with Postgres
+- [x] Alembic set up with an empty first migration
+- [x] pytest and linting configured
+- [x] GitHub Actions CI workflow
 - [x] Data spike notes: earliest usable `reported_at` for 5 stocks ([SPIKE.md](SPIKE.md))
 - [ ] Scheduled workflow that fetches one bhavcopy and one filing
 - [x] Look at one integrated filing (Mar 2025 onward) and note its format
@@ -169,6 +169,7 @@ One line per push, newest first.
 
 | Date | Phase | What was pushed | Why |
 |---|---|---|---|
+| 2026-11-11 | 0 | Skeleton: `pyproject.toml`, Docker Compose with Postgres, Alembic with an empty baseline, a `/health` endpoint, three tests, ruff, CI workflow, `README.md` | Give every later phase a place to put code, a database to run against, and checks that run on each push |
 | 2026-11-11 | 0 | `SPIKE.md`; updates to `PLAN.md`, `DECISIONS.md` (D-25 to D-27) | Record what the archives hold: dated results from 2007, balance sheets from 2018, dated shareholding from 2016, and what that does to the backtest window |
 | 2026-11-11 | Docs | All five docs moved into `doc/`; `main` branch created | Keep the repo root free for code, and give the repo a default branch to merge into |
 | 2026-11-11 | Docs | `PHASE.md`, `DECISIONS.md`, `ARCHITECTURE.md` | Record what each phase delivers, why each decision was made, and which alternatives were rejected |
