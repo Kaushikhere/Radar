@@ -145,9 +145,10 @@ CREATE TABLE financials_quarterly (
   finance_costs NUMERIC, tax_expense NUMERIC,
   operating_cf NUMERIC,                   -- often NULL: filed half-yearly or annually
   total_debt NUMERIC, equity NUMERIC,     -- often NULL: filed half-yearly or annually
-  shares_outstanding NUMERIC, eps NUMERIC,
+  shares_outstanding NUMERIC, eps NUMERIC, -- shares = paid-up capital / face value
   total_assets NUMERIC, gross_npa_pct NUMERIC,  -- banks/NBFCs only
   net_npa_pct NUMERIC, capital_adequacy_pct NUMERIC,
+  source_format TEXT,                     -- html | xbrl | integrated
   source_url TEXT,
   PRIMARY KEY (stock_id, period_end, is_consolidated, reported_at)  -- keeps restatements
 );
@@ -201,11 +202,11 @@ Known simplification: sector is today's classification, not its history. State t
 | Data | Source | Notes |
 |---|---|---|
 | Prices | NSE bhavcopy archives | Include delisted names; keyed by symbol, so map through `symbol_history` |
-| Corporate actions | NSE corporate actions files | Needed before any return calculation; includes rights issues and demergers |
+| Corporate actions | NSE corporate actions files | Needed before any return calculation; includes rights issues and demergers. Demerger rows give no ratio, so that price factor needs a separate method |
 | Index levels | NSE index history (price and total return) | Nifty 500 TRI and Nifty 50 TRI |
 | Index membership | NSE index constituent change notices | Rebuild date ranges from the change history; the hardest ingest in the plan, with its own gate in Phase 3 |
-| Financials | Exchange result filings (XBRL) | Filing date gives `reported_at` |
-| Shareholding | Exchange shareholding pattern filings | Filing date gives `reported_at` |
+| Financials | NSE result filings, in three formats: web pages (Mar 2007 to 2017), XBRL (2018 to Dec 2024), integrated filing (Mar 2025 onward) | Filing date gives `reported_at`. Quarters before Mar 2007 have no filing date and are skipped. Balance sheet and cash flow exist only from 2018. Units differ by format (₹ lakh, then ₹ crore) and are converted to one unit on ingest |
+| Shareholding | BSE shareholding pattern filings | Filing date gives `reported_at`. Dated from Mar 2016 only; NSE's history starts in 2021 |
 | Announcements | Exchange corporate announcements | Source for keyword red flags |
 
 Batch and cache every download, and respect each site's terms. Screener.in is for
@@ -217,10 +218,18 @@ Two things are checked in Phase 0, before any ingest code is written:
 - Whether the scheduled job can download from the exchange at all. Exchange sites may
   block requests from cloud hosts such as GitHub Actions runners.
 
+The first check is done: see [SPIKE.md](SPIKE.md). Dated results start with the Mar 2007
+quarter, so scoring can start about 2012.
+
 ## 7. Backtest rules
 
 - Universe on each date: stocks in the Nifty 500 on that date that pass the liquidity filter.
 - Inputs: only rows with `reported_at < as_of`; prices up to `as_of`.
+- Window: about 2012 to the present, reported as two periods. Before 2018 there are no
+  balance sheets, so F uses growth measures only, and O is NULL before 2016. From 2018
+  all four factors are complete. The two periods are never merged into one headline number.
+- Use consolidated figures where they exist and standalone otherwise. A growth rate is
+  never computed across the two.
 - Rebalance quarterly, equal weight, top N by total score after the red-flag filter.
 - Also run an annual-rebalance variant, since the scores target a 1–3 year hold.
 - Returns on adjusted prices including dividends, minus a fixed trading cost per rebalance.
@@ -260,8 +269,10 @@ Time estimates assume part-time work and are guesses. Phase 2 is the most likely
 - First FastAPI endpoint: `/stocks/{symbol}`
 - **Gate:** adjusted prices match a reference for 5 stocks, including one with a split or bonus
 
-### Phase 2 — Fundamentals for the same 50 (3–4 weeks)
-- Results and shareholding ingest from exchange filings with `reported_at`
+### Phase 2 — Fundamentals for the same 50 (4–6 weeks)
+- Results ingest with `reported_at`, one parser per format: old web pages, XBRL,
+  integrated filing
+- Shareholding ingest from BSE with `reported_at`
 - F, V and O factors; total score; missing-value handling
 - **Gate:** look-ahead test passes; every score has at least one evidence line
 
@@ -339,6 +350,6 @@ Stock projects are common, so lead with the engineering:
 |---|---|
 | Fundamentals source | Exchange filings; Screener.in for spot-checks only |
 | Factor weights | Fixed for v1; ML ranker is a challenger |
-| Backtest depth | Estimated in the Phase 0 data spike; confirmed after Phase 3 measures real coverage |
+| Backtest depth | About 2012 onward, with full factors from about 2018 ([SPIKE.md](SPIKE.md)); confirmed after Phase 3 measures real coverage |
 | Personal or public | Public read-only demo, no logins |
 | Streamlit or FastAPI + React | FastAPI + minimal React |

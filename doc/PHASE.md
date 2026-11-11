@@ -11,15 +11,15 @@ Related: [DECISIONS.md](DECISIONS.md) for why each choice was made,
 | Phase | What it delivers | Estimate | Status |
 |---|---|---|---|
 | Docs | PRD, plan, decisions, architecture | — | Done |
-| 0 | Skeleton and data spike | 1 week | Not started |
+| 0 | Skeleton and data spike | 1 week | In progress |
 | 1 | Prices for 50 stocks | 2 weeks | Not started |
-| 2 | Fundamentals for the same 50 | 3–4 weeks | Not started |
+| 2 | Fundamentals for the same 50 | 4–6 weeks | Not started |
 | 3 | Full universe | 2–3 weeks | Not started |
 | 4 | Backtest | 2 weeks | Not started |
 | 5 | Product | 3 weeks | Not started |
 | 6 | ML experiment | 2 weeks | Not started |
 
-**Current phase:** 0 (next up)
+**Current phase:** 0 (data spike done; skeleton and download test remaining)
 
 ## How to use this file
 
@@ -41,12 +41,13 @@ cheap to check now and expensive to discover in Phase 3.
 - [ ] Alembic set up with an empty first migration
 - [ ] pytest and linting configured
 - [ ] GitHub Actions CI workflow
-- [ ] Data spike notes: earliest usable `reported_at` for 5 stocks
+- [x] Data spike notes: earliest usable `reported_at` for 5 stocks ([SPIKE.md](SPIKE.md))
 - [ ] Scheduled workflow that fetches one bhavcopy and one filing
+- [x] Look at one integrated filing (Mar 2025 onward) and note its format
 
 **Gate**
 - [ ] CI is green on an empty app
-- [ ] Earliest filing year and likely backtest window are written down
+- [x] Earliest filing year and likely backtest window are written down
 - [ ] Scheduled download works, or a fallback (self-hosted runner or local cron) is chosen
 
 ## Phase 1 — Prices for 50 stocks
@@ -75,8 +76,8 @@ also where look-ahead bias enters, so the point-in-time rule is built and tested
 
 **What gets pushed**
 - [ ] Migrations for `financials_quarterly`, `shareholding`, `scores`
-- [ ] Results ingest from exchange filings, with `reported_at`
-- [ ] Shareholding ingest, with `reported_at`
+- [ ] Results ingest with `reported_at`: old web pages, XBRL, integrated filing
+- [ ] Shareholding ingest from BSE, with `reported_at`
 - [ ] F, V and O factors, each returning `{score, evidence[]}`
 - [ ] Total score with re-weighting for missing factors
 - [ ] Look-ahead test, evidence test, missing-data test
@@ -168,6 +169,7 @@ One line per push, newest first.
 
 | Date | Phase | What was pushed | Why |
 |---|---|---|---|
+| 2026-11-11 | 0 | `SPIKE.md`; updates to `PLAN.md`, `DECISIONS.md` (D-25 to D-27) | Record what the archives hold: dated results from 2007, balance sheets from 2018, dated shareholding from 2016, and what that does to the backtest window |
 | 2026-11-11 | Docs | All five docs moved into `doc/`; `main` branch created | Keep the repo root free for code, and give the repo a default branch to merge into |
 | 2026-11-11 | Docs | `PHASE.md`, `DECISIONS.md`, `ARCHITECTURE.md` | Record what each phase delivers, why each decision was made, and which alternatives were rejected |
 | 2026-11-11 | Docs | Revised `PLAN.md`; one-line fix in `PRD.md` | Move the data check to Phase 0, fix schema gaps (ROCE inputs, restatements, same-day look-ahead, demergers), add an annual-rebalance run |

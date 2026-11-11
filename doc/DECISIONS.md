@@ -33,6 +33,9 @@ to change its meaning: mark it "Superseded by D-xx" and add a new one.
 | D-22 | Check data availability in Phase 0 | Process | Accepted |
 | D-23 | Build on 50 stocks before 500 | Process | Accepted |
 | D-24 | Public read-only demo, no logins | Product | Accepted |
+| D-25 | Consolidated where it exists, standalone otherwise | Data | Accepted |
+| D-26 | No ownership score before 2016 | Scoring | Accepted |
+| D-27 | Backtest from 2012, reported in two periods | Backtest | Accepted |
 
 ---
 
@@ -94,6 +97,13 @@ to change its meaning: mark it "Superseded by D-xx" and add a new one.
 - **Cost:** Every ingest has to map symbol and date to `stock_id`.
 - **Revisit when:** Never.
 
+### D-25 — Consolidated where it exists, standalone otherwise
+- **Status:** Accepted on 11 Nov 2026, from the Phase 0 spike ([SPIKE.md](SPIKE.md)).
+- **Decision:** Both kinds of result are stored, flagged by `is_consolidated`. Scoring uses consolidated figures when they exist for the period and standalone otherwise. A growth rate is never computed across the two.
+- **Why:** Consolidated quarterly results start only in mid-2017 (checked on Titan), while standalone goes back to 2007. Consolidated is the truer picture for groups such as Reliance, but using it alone would cut the backtest to a few years.
+- **Cost:** The basis changes around 2017, so scores just before and after are not strictly comparable. Companies with large subsidiaries are understated before 2017.
+- **Revisit when:** Phase 2, when it is clear whether consolidated annual results (dated from 2007) can feed the long-term growth measures.
+
 ## Scoring
 
 ### D-09 — Fixed factor weights for v1
@@ -144,6 +154,13 @@ to change its meaning: mark it "Superseded by D-xx" and add a new one.
 - **Cost:** Keywords miss anything phrased unusually.
 - **Revisit when:** v1 is live and keyword misses are documented.
 
+### D-26 — No ownership score before 2016
+- **Status:** Accepted on 11 Nov 2026, from the Phase 0 spike ([SPIKE.md](SPIKE.md)).
+- **Decision:** The ownership factor is NULL for scoring dates before shareholding filings carry a date (Mar 2016). Those dates are scored on the remaining factors under D-12.
+- **Why:** Without a filing date there is no way to know when the market saw the data. Assuming a date at the regulatory deadline would be a guess presented as a fact.
+- **Cost:** Scores before 2016 rest on three factors, one of them reduced.
+- **Revisit when:** A source with dated shareholding filings before 2016 turns up.
+
 ## Backtest
 
 ### D-17 — Nifty 500 total return as the primary benchmark
@@ -169,6 +186,13 @@ to change its meaning: mark it "Superseded by D-xx" and add a new one.
 - **Why:** A live-only scorecard would be empty for the first year.
 - **Cost:** Backtest numbers are weaker evidence than live ones, and readers may not notice the label.
 - **Revisit when:** The live portfolio has 12 months of history and can lead the page.
+
+### D-27 — Backtest from 2012, reported in two periods
+- **Status:** Accepted on 11 Nov 2026, from the Phase 0 spike ([SPIKE.md](SPIKE.md)).
+- **Decision:** The backtest starts about 2012. Results are reported separately for the period before 2018, where F uses growth measures only, and from 2018, where all four factors are complete.
+- **Why:** Dated results start in 2007, but balance sheets and cash flow exist only from the 2018 XBRL filings. Starting in 2018 would leave too few years; merging the two periods would hide that the early scores use less information.
+- **Cost:** A second results parser for the old web pages, and two sets of numbers to explain.
+- **Revisit when:** The reduced-factor period behaves so differently that it adds confusion, not evidence.
 
 ## ML
 
